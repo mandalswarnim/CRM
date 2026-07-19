@@ -1,0 +1,31 @@
+{
+  "name": "@meridian/server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc -p tsconfig.json && npm run copy-assets",
+    "copy-assets": "node -e \"const fs=require('fs');for(const f of ['db/system.sql','db/tenant_template.sql']){fs.mkdirSync(require('path').dirname('dist/'+f),{recursive:true});fs.copyFileSync('src/'+f,'dist/'+f)}\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "seed": "tsx src/seed/run-seed.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.2.17",
+    "express": "^4.21.2",
+    "fast-xml-parser": "^4.5.0",
+    "nodemailer": "^6.9.16",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.0",
+    "@types/nodemailer": "^6.4.17",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
