@@ -50,6 +50,7 @@ CREATE TABLE picklist_value (
   is_default boolean NOT NULL DEFAULT false,
   sort_order int NOT NULL DEFAULT 0,
   color      text,
+  meta       jsonb NOT NULL DEFAULT '{}',   -- e.g. Opportunity stage {probability, isClosed, isWon, forecast}
   UNIQUE (set_id, value)
 );
 
