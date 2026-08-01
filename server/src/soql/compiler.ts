@@ -11,8 +11,11 @@ import { getSecurityPolicy, type SecurityPolicy } from './security.js';
 /** Types compared case-insensitively, as SOQL does for text. */
 const TEXTUAL = new Set(['Text', 'TextArea', 'LongTextArea', 'RichText', 'Picklist', 'MultiselectPicklist', 'Email', 'Phone', 'Url']);
 
-/** Types with no stored column: computed at read time, so not filterable or sortable yet. */
-const COMPUTED = new Set(['Formula', 'RollupSummary']);
+/**
+ * Types with no stored value: computed at read time, so not filterable or sortable.
+ * Rollup summaries are not here — they are maintained in the JSONB body on every child write.
+ */
+const COMPUTED = new Set(['Formula']);
 
 export interface OutputColumn {
   /** The key this value takes in the result record. */
@@ -54,6 +57,23 @@ export function parentRelationshipName(f: FieldMeta): string {
   if (f.apiName.endsWith('Id')) return f.apiName.slice(0, -2);
   if (f.apiName.endsWith('__c')) return f.apiName.replace(/__c$/, '__r');
   return f.apiName;
+}
+
+/**
+ * A rollup stores whatever its operation produces: counts and sums are numeric, but MIN/MAX over a
+ * date column stores a date. The declared return type decides the cast.
+ */
+function rollupCast(f: FieldMeta): string {
+  const spec = f.rollup;
+  if (!spec || spec.operation === 'COUNT' || spec.operation === 'SUM') return 'numeric';
+  switch (f.formulaReturnType) {
+    case 'Date':
+      return 'date';
+    case 'DateTime':
+      return 'timestamptz';
+    default:
+      return 'numeric';
+  }
 }
 
 interface Resolved {
@@ -190,6 +210,8 @@ class Compiler {
         return `${raw}::timestamptz`;
       case 'Time':
         return `${raw}::time`;
+      case 'RollupSummary':
+        return `${raw}::${rollupCast(f)}`;
       default:
         return raw;
     }

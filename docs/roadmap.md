@@ -5,7 +5,7 @@ The plan of record for building the platform and the Oriental Club org on top of
 
 Status: ✅ done · 🚧 in progress · ⬜ not started
 
-Last updated: 1 August 2026 · 178 tests passing · ~7,500 lines
+Last updated: 1 August 2026 · 196 tests passing · ~8,200 lines
 
 ---
 
@@ -67,7 +67,7 @@ API server with metadata-driven storage, a real query language, and enforced sec
 
 | # | Task | Status |
 |---|---|---|
-| 9 | **DML side effects.** Rollup summaries, field history, Chatter tracked-change feed items, tsvector search index, streaming publish. Fills hooks the pipeline already exposes. Lifts the "cannot filter on rollup fields" limitation. | ⬜ |
+| 9 | **DML side effects.** Rollup summaries (stored, so filterable and sortable), field history, Chatter tracked-change feed items, tsvector search index, post-commit change bus. | ✅ |
 | 10 | **Validation and workflow rules.** Where the first real club rules become enforceable config rather than code. | ⬜ |
 | 11 | **Flow engine.** JSON DSL interpreter: record-triggered, scheduled, autolaunched. | ⬜ |
 | 12 | **Approval processes.** First use: the membership application chain — proposer and seconder, then Membership Sub-Committee. | ⬜ |
@@ -111,8 +111,9 @@ API server with metadata-driven storage, a real query language, and enforced sec
 
 Recorded so nobody mistakes them for oversights:
 
-- **Formula and rollup fields** can be selected but not filtered, sorted or grouped on — no stored
-  column. Raises `MALFORMED_QUERY` rather than returning wrong rows. Task 9 lifts half of this.
+- **Formula fields** can be selected but not filtered, sorted or grouped on — nothing is stored.
+  Raises `MALFORMED_QUERY` rather than returning wrong rows. (Rollups are now stored and queryable.)
+- **Undelete does not re-run rollups**, so a restored child is counted again only on its next save.
 - **Polymorphic relationship traversal** needs `TYPEOF`; unimplemented, raises a clear error.
 - **Duplicate external ids within one batch** are caught by the database unique index rather than
   the pre-check, so the whole batch fails instead of the one record. Data stays correct.

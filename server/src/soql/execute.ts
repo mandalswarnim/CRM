@@ -61,6 +61,15 @@ function shapeValue(field: FieldMeta | undefined, raw: unknown): unknown {
       return toIsoDate(raw);
     case 'DateTime':
       return toIsoDateTime(raw);
+    case 'RollupSummary': {
+      // Counts and sums are numbers on the wire; MIN/MAX may carry the source field's type.
+      const spec = field.rollup;
+      if (!spec || spec.operation === 'COUNT' || spec.operation === 'SUM') return Number(raw);
+      if (field.formulaReturnType === 'Date') return toIsoDate(raw);
+      if (field.formulaReturnType === 'DateTime') return toIsoDateTime(raw);
+      const n = Number(raw);
+      return Number.isNaN(n) ? raw : n;
+    }
     case 'MultiselectPicklist':
       return String(raw);
     case 'Geolocation':

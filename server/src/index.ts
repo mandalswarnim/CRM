@@ -2,11 +2,13 @@ import { config } from './config.js';
 import { getDb, migrateSystem } from './db/index.js';
 import { createApp } from './http/app.js';
 import { installSecurity } from './security/index.js';
+import { installEffects } from './effects/index.js';
 
 async function main(): Promise<void> {
   const db = await getDb();
   await migrateSystem(db);
   installSecurity();
+  installEffects();
 
   const app = createApp(db);
   const server = app.listen(config.port, () => {
