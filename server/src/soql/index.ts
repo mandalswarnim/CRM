@@ -1,0 +1,10 @@
+export { parseSoql } from './parser.js';
+export { tokenize } from './lexer.js';
+export { compileQuery, parentRelationshipName } from './compiler.js';
+export type { CompiledQuery, OutputColumn } from './compiler.js';
+export { runQuery, runQueryMore, runCount, queryRecords } from './execute.js';
+export type { QueryOptions, QueryResultBody } from './execute.js';
+export { setSecurityPolicy, resetSecurityPolicy, getSecurityPolicy, ALLOW_ALL } from './security.js';
+export type { SecurityPolicy, SharingPredicate } from './security.js';
+export { resolveDateLiteral } from './dates.js';
+export type { SoqlQuery, Condition, SelectItem, OrderItem, LiteralValue } from './ast.js';

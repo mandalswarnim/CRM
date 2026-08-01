@@ -53,5 +53,19 @@ export const Errors = {
   stringTooLong: (field: string, max: number) =>
     new SfError('STRING_TOO_LONG', `${field}: data value too large (max length=${max})`, 400, [field]),
   badPicklist: (field: string, value: string) =>
-    new SfError('INVALID_OR_NULL_FOR_RESTRICTED_PICKLIST', `${field}: bad value for restricted picklist field: ${value}`, 400, [field])
+    new SfError('INVALID_OR_NULL_FOR_RESTRICTED_PICKLIST', `${field}: bad value for restricted picklist field: ${value}`, 400, [field]),
+  notWritable: (field: string) =>
+    new SfError(
+      'INVALID_FIELD_FOR_INSERT_UPDATE',
+      `Unable to create/update fields: ${field}. Please check the security settings of this field and verify that it is read/write for your profile.`,
+      400,
+      [field]
+    ),
+  invalidValue: (field: string, message: string) =>
+    new SfError('INVALID_FIELD', `${field}: ${message}`, 400, [field]),
+  malformedId: (field: string, value: string) =>
+    new SfError('MALFORMED_ID', `${field}: id value of incorrect type: ${value}`, 400, [field]),
+  deleteFailed: (msg: string) =>
+    new SfError('DELETE_FAILED', msg, 400),
+  invalidBatch: (msg: string) => new SfError('INVALID_BATCH', msg, 400)
 };
