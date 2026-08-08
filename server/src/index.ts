@@ -4,12 +4,14 @@ import { createApp } from './http/app.js';
 import { installSecurity } from './security/index.js';
 import { installEffects } from './effects/index.js';
 import { installAutomation } from './automation/index.js';
+import { installFlows } from './flow/index.js';
 
 async function main(): Promise<void> {
   const db = await getDb();
   await migrateSystem(db);
   installSecurity();
   installAutomation();
+  installFlows();
   installEffects();
 
   const app = createApp(db);

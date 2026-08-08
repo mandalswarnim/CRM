@@ -5,7 +5,7 @@ The plan of record for building the platform and the Oriental Club org on top of
 
 Status: ✅ done · 🚧 in progress · ⬜ not started
 
-Last updated: 8 August 2026 · 217 tests passing · ~9,000 lines
+Last updated: 9 August 2026 · 239 tests passing · ~9,900 lines
 
 ---
 
@@ -69,7 +69,7 @@ API server with metadata-driven storage, a real query language, and enforced sec
 |---|---|---|
 | 9 | **DML side effects.** Rollup summaries (stored, so filterable and sortable), field history, Chatter tracked-change feed items, tsvector search index, post-commit change bus. | ✅ |
 | 10 | **Validation and workflow rules.** Field-filter and formula criteria, three trigger types, field updates (re-validated), email alerts, tasks, outbound messages, time-based triggers. The first real club rules are now configuration. | ✅ |
-| 11 | **Flow engine.** JSON DSL interpreter: record-triggered, scheduled, autolaunched. | ⬜ |
+| 11 | **Flow engine.** JSON DSL interpreter — assignment, decision, loop, get/create/update/delete records, email, post to feed, subflow. Record-triggered before-save and after-save, limit-accounted, cycle-guarded. | ✅ |
 | 12 | **Approval processes.** First use: the membership application chain — proposer and seconder, then Membership Sub-Committee. | ⬜ |
 | 13 | **Scheduler.** Advisory-lock job runner: time-based triggers, scheduled flows, recycle-bin purge, weekly export. | ⬜ |
 | 14 | **SOSL and global search.** | ⬜ |
@@ -117,5 +117,8 @@ Recorded so nobody mistakes them for oversights:
 - **Polymorphic relationship traversal** needs `TYPEOF`; unimplemented, raises a clear error.
 - **Duplicate external ids within one batch** are caught by the database unique index rather than
   the pre-check, so the whole batch fails instead of the one record. Data stays correct.
+- **Screen flows** are parsed and interpreted headlessly — there is no UI to pause against until
+  the client exists, so a screen element simply continues.
+- **`submitForApproval`** queues the request rather than running it; approval processes are task 12.
 - **`npm run dev`** starts no client until task 19.
 - **`npm install`** needs `--cache <dir>` under a sandbox that blocks `~/.npm`.
