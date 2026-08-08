@@ -519,6 +519,9 @@ async function runSave(
         try {
           if (operation === 'insert') {
             const { id, values } = await prepareInsert(c, ctx, org, obj, input);
+            // Hooks read the after-image as a complete record; without Id, anything derived from
+            // it (task links, queue rows, formulas referencing Id) silently comes out null.
+            values.Id = id;
             changes.push({ id, before: null, after: values, input, updates: {} });
             results[i] = toResult(id, true);
           } else {

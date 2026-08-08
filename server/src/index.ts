@@ -3,11 +3,13 @@ import { getDb, migrateSystem } from './db/index.js';
 import { createApp } from './http/app.js';
 import { installSecurity } from './security/index.js';
 import { installEffects } from './effects/index.js';
+import { installAutomation } from './automation/index.js';
 
 async function main(): Promise<void> {
   const db = await getDb();
   await migrateSystem(db);
   installSecurity();
+  installAutomation();
   installEffects();
 
   const app = createApp(db);

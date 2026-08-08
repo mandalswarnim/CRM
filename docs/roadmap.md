@@ -5,7 +5,7 @@ The plan of record for building the platform and the Oriental Club org on top of
 
 Status: ✅ done · 🚧 in progress · ⬜ not started
 
-Last updated: 1 August 2026 · 196 tests passing · ~8,200 lines
+Last updated: 8 August 2026 · 217 tests passing · ~9,000 lines
 
 ---
 
@@ -68,7 +68,7 @@ API server with metadata-driven storage, a real query language, and enforced sec
 | # | Task | Status |
 |---|---|---|
 | 9 | **DML side effects.** Rollup summaries (stored, so filterable and sortable), field history, Chatter tracked-change feed items, tsvector search index, post-commit change bus. | ✅ |
-| 10 | **Validation and workflow rules.** Where the first real club rules become enforceable config rather than code. | ⬜ |
+| 10 | **Validation and workflow rules.** Field-filter and formula criteria, three trigger types, field updates (re-validated), email alerts, tasks, outbound messages, time-based triggers. The first real club rules are now configuration. | ✅ |
 | 11 | **Flow engine.** JSON DSL interpreter: record-triggered, scheduled, autolaunched. | ⬜ |
 | 12 | **Approval processes.** First use: the membership application chain — proposer and seconder, then Membership Sub-Committee. | ⬜ |
 | 13 | **Scheduler.** Advisory-lock job runner: time-based triggers, scheduled flows, recycle-bin purge, weekly export. | ⬜ |
