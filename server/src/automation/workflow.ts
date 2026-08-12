@@ -3,6 +3,7 @@ import { tableFor } from '../metadata/registry.js';
 import type { ObjectMeta } from '../metadata/types.js';
 import { getField } from '../metadata/types.js';
 import type { DmlEvent, RecordChange } from '../dml/hooks.js';
+import type { RequestContext } from '../runtime/context.js';
 import { insertRecords, updateRecords } from '../dml/pipeline.js';
 import { generateId, KEY_PREFIXES } from '../util/ids.js';
 import { Errors } from '../util/errors.js';
@@ -164,19 +165,21 @@ async function queueEmailAlert(
 }
 
 async function createTask(
-  e: DmlEvent,
+  ctx: RequestContext,
+  client: DbClient,
+  obj: ObjectMeta,
   record: Record<string, any>,
   action: TaskAction
 ): Promise<void> {
   const due = action.dueDays != null ? new Date(Date.now() + action.dueDays * 86400_000).toISOString().slice(0, 10) : null;
-  const owner = action.ownerId ?? (action.ownerField ? record[action.ownerField] : null) ?? record.OwnerId ?? e.ctx.userId;
+  const owner = action.ownerId ?? (action.ownerField ? record[action.ownerField] : null) ?? record.OwnerId ?? ctx.userId;
 
   await insertRecords(
-    e.ctx,
+    ctx,
     'Task',
     [
       {
-        Subject: mergeFields(action.subject, { object: e.object, record }),
+        Subject: mergeFields(action.subject, { object: obj, record }),
         WhatId: record.Id,
         Status: action.status ?? 'Not Started',
         Priority: action.priority ?? 'Normal',
@@ -184,8 +187,45 @@ async function createTask(
         OwnerId: owner
       }
     ],
-    { client: e.client, skipAutomation: true }
+    { client, skipAutomation: true }
   );
+}
+
+/**
+ * Run a set of actions outside the workflow-rule path.
+ *
+ * Approval processes fire the same action shapes on submit, approve, reject and recall, so the
+ * executor is shared rather than reimplemented — one place decides what an "email alert" means.
+ * Field updates are returned for the caller to apply, since who writes them differs by caller.
+ */
+export async function executeActions(
+  ctx: RequestContext,
+  client: DbClient,
+  obj: ObjectMeta,
+  record: Record<string, any>,
+  actions: WorkflowAction[],
+  sourceId: string
+): Promise<Record<string, any>> {
+  const fieldUpdates: Record<string, any> = {};
+  for (const action of actions ?? []) {
+    switch (action.type) {
+      case 'fieldUpdate': {
+        const update = fieldUpdatesFor(obj, action, { id: record.Id, before: null, after: record, input: {}, updates: {} }, ctx.userId);
+        fieldUpdates[update.field] = update.value;
+        break;
+      }
+      case 'emailAlert':
+        await queueEmailAlert(client, obj, record, action);
+        break;
+      case 'task':
+        await createTask(ctx, client, obj, record, action);
+        break;
+      case 'outboundMessage':
+        await queueOutboundMessage(client, { id: sourceId } as WorkflowRuleRow, obj, record, action);
+        break;
+    }
+  }
+  return fieldUpdates;
 }
 
 async function queueOutboundMessage(
@@ -301,7 +341,7 @@ export async function runWorkflowRules(e: DmlEvent): Promise<void> {
             await queueEmailAlert(e.client, e.object, change.after!, action);
             break;
           case 'task':
-            await createTask(e, change.after!, action);
+            await createTask(e.ctx, e.client, e.object, change.after!, action);
             break;
           case 'outboundMessage':
             await queueOutboundMessage(e.client, rule, e.object, change.after!, action);

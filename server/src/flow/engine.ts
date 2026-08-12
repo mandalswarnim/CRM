@@ -231,22 +231,17 @@ async function executeNode(
     }
 
     case 'submitForApproval': {
-      // Approval processes land in their own task; the request is recorded so the flow is usable now.
       const recordId = resolveExpression(node.recordId, scope);
       if (recordId) {
-        await withClient(ctx, opts, (c) =>
-          c.query(
-            `INSERT INTO time_trigger_queue (id, kind, source_id, object_api, record_id, fire_at, payload, status)
-             VALUES ($1,'submitForApproval',$2,$3,$4, now(), $5, 'Pending')`,
-            [
-              generateId(KEY_PREFIXES.CronJob),
-              flow.id,
-              flow.trigger?.objectApi ?? '',
-              String(recordId),
-              JSON.stringify({ processApiName: node.processApiName ?? null, submittedBy: ctx.userId })
-            ]
-          )
-        );
+        const objectApi = flow.trigger?.objectApi;
+        if (!objectApi) {
+          throw Errors.invalidOperation('A submit-for-approval element needs a record-triggered flow with an object.');
+        }
+        const { submitForApproval } = await import('../approval/engine.js');
+        await submitForApproval(ctx, objectApi, String(recordId), {
+          processApiName: node.processApiName,
+          client: opts.client
+        });
       }
       return node.next;
     }

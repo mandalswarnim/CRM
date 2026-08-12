@@ -5,7 +5,7 @@ The plan of record for building the platform and the Oriental Club org on top of
 
 Status: ✅ done · 🚧 in progress · ⬜ not started
 
-Last updated: 9 August 2026 · 239 tests passing · ~9,900 lines
+Last updated: 10 August 2026 · 258 tests passing · ~10,900 lines
 
 ---
 
@@ -70,7 +70,7 @@ API server with metadata-driven storage, a real query language, and enforced sec
 | 9 | **DML side effects.** Rollup summaries (stored, so filterable and sortable), field history, Chatter tracked-change feed items, tsvector search index, post-commit change bus. | ✅ |
 | 10 | **Validation and workflow rules.** Field-filter and formula criteria, three trigger types, field updates (re-validated), email alerts, tasks, outbound messages, time-based triggers. The first real club rules are now configuration. | ✅ |
 | 11 | **Flow engine.** JSON DSL interpreter — assignment, decision, loop, get/create/update/delete records, email, post to feed, subflow. Record-triggered before-save and after-save, limit-accounted, cycle-guarded. | ✅ |
-| 12 | **Approval processes.** First use: the membership application chain — proposer and seconder, then Membership Sub-Committee. | ⬜ |
+| 12 | **Approval processes.** Entry criteria, multi-step chains with skip conditions, user/manager/queue/role approvers, unanimity, record locking derived from pending work items, recall, full history, and a `/process/approvals` REST surface. | ✅ |
 | 13 | **Scheduler.** Advisory-lock job runner: time-based triggers, scheduled flows, recycle-bin purge, weekly export. | ⬜ |
 | 14 | **SOSL and global search.** | ⬜ |
 | 15 | **Booking and inventory engine.** ⚠️ The one piece metadata does not give free — correct availability needs a real allocation model with database-level exclusion constraints. Nightly room inventory, restaurant covers per service period, time-slot holds on venues. Design task, not an implementation detail. | ⬜ |
@@ -119,6 +119,5 @@ Recorded so nobody mistakes them for oversights:
   the pre-check, so the whole batch fails instead of the one record. Data stays correct.
 - **Screen flows** are parsed and interpreted headlessly — there is no UI to pause against until
   the client exists, so a screen element simply continues.
-- **`submitForApproval`** queues the request rather than running it; approval processes are task 12.
 - **`npm run dev`** starts no client until task 19.
 - **`npm install`** needs `--cache <dir>` under a sandbox that blocks `~/.npm`.

@@ -34,6 +34,27 @@ export interface DmlOptions {
    * Composite requests use this so several operations commit or roll back together.
    */
   client?: DbClient;
+  /** Approval processes set fields on records they have themselves locked. */
+  skipApprovalLock?: boolean;
+}
+
+/**
+ * Refuse to modify a record that a pending approval has locked.
+ *
+ * Imported lazily so the DML pipeline does not depend on the approval engine at module load —
+ * approvals build on DML, not the other way round.
+ */
+async function assertNotLocked(
+  ctx: RequestContext,
+  c: DbClient,
+  opts: DmlOptions,
+  ids: string[]
+): Promise<void> {
+  if (opts.skipApprovalLock || !ids.length) return;
+  if (ctx.perms.modifyAllData === true) return;
+  const { lockedRecordIds } = await import('../approval/engine.js');
+  const locked = await lockedRecordIds(c, ids);
+  if (locked.size) throw Errors.entityLocked();
 }
 
 /** Run fn on the caller's client if there is one, otherwise in a fresh tenant transaction. */
@@ -510,7 +531,10 @@ async function runSave(
       const changes: RecordChange[] = [];
       const targetIds = records.map((r) => normalizeId(r.Id) ?? '').filter(Boolean);
       const existingRows = operation === 'update' ? await loadRows(c, obj, targetIds) : new Map<string, StoredRow>();
-      if (operation === 'update') await assertRecordsWritable(ctx, c, obj, [...existingRows.keys()]);
+      if (operation === 'update') {
+        await assertRecordsWritable(ctx, c, obj, [...existingRows.keys()]);
+        await assertNotLocked(ctx, c, opts, [...existingRows.keys()]);
+      }
 
       for (let i = 0; i < records.length; i++) {
         const input = records[i];

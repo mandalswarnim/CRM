@@ -59,9 +59,38 @@ export class RequestContext {
     this.access = access;
   }
 
-  /** Run fn against a client bound to this org's schema. All tenant SQL goes through here. */
-  tenant<T>(fn: (c: DbClient) => Promise<T>): Promise<T> {
-    return withTenantClient(this.db, this.schema, fn);
+  /** The client currently bound to this context, if a tenant block is already open. */
+  private activeClient: DbClient | null = null;
+
+  /**
+   * Run fn against a client bound to this org's schema. All tenant SQL goes through here.
+   *
+   * Re-entrant on purpose: nested calls reuse the client the outer call already holds. Without
+   * that, an inner call would wait for a second connection the outer one is holding — which
+   * deadlocks outright on the single-connection embedded driver, and silently splits one logical
+   * transaction across two connections on real Postgres.
+   */
+  async tenant<T>(fn: (c: DbClient) => Promise<T>): Promise<T> {
+    if (this.activeClient) return fn(this.activeClient);
+    return withTenantClient(this.db, this.schema, async (c) => {
+      this.activeClient = c;
+      try {
+        return await fn(c);
+      } finally {
+        this.activeClient = null;
+      }
+    });
+  }
+
+  /** Bind an externally-owned client (a hook's transaction) for the duration of fn. */
+  async withClient<T>(client: DbClient, fn: () => Promise<T>): Promise<T> {
+    const previous = this.activeClient;
+    this.activeClient = client;
+    try {
+      return await fn();
+    } finally {
+      this.activeClient = previous;
+    }
   }
 
   /** Last resolved org metadata, so the synchronous security policy can consult it. */
