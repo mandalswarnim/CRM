@@ -5,6 +5,7 @@ import { installSecurity } from './security/index.js';
 import { installEffects } from './effects/index.js';
 import { installAutomation } from './automation/index.js';
 import { installFlows } from './flow/index.js';
+import { Scheduler } from './scheduler/index.js';
 
 async function main(): Promise<void> {
   const db = await getDb();
@@ -14,6 +15,10 @@ async function main(): Promise<void> {
   installFlows();
   installEffects();
 
+  // Runs in every replica; an advisory lock decides which one executes a given org's due work.
+  const scheduler = new Scheduler(db);
+  if (process.env.SCHEDULER_ENABLED !== 'false') scheduler.start();
+
   const app = createApp(db);
   const server = app.listen(config.port, () => {
     console.log(`[meridian] listening on ${config.baseUrl} (${db.kind})`);
@@ -21,6 +26,7 @@ async function main(): Promise<void> {
 
   const shutdown = async (signal: string) => {
     console.log(`[meridian] ${signal} received, shutting down`);
+    scheduler.stop();
     server.close();
     await db.close().catch(() => undefined);
     process.exit(0);

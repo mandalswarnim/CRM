@@ -5,7 +5,7 @@ The plan of record for building the platform and the Oriental Club org on top of
 
 Status: ✅ done · 🚧 in progress · ⬜ not started
 
-Last updated: 10 August 2026 · 258 tests passing · ~10,900 lines
+Last updated: 13 August 2026 · 278 tests passing · ~11,700 lines
 
 ---
 
@@ -18,7 +18,7 @@ API server with metadata-driven storage, a real query language, and enforced sec
 |---|---|---|
 | A — Make it run | Server boots, DML and SOQL work | ✅ |
 | B — First verifiable milestone | Security enforced, REST API live | ✅ |
-| C — Platform behaviours | Rollups, automation, scheduling, search | ⬜ |
+| C — Platform behaviours | Rollups, automation, scheduling, search | 🚧 |
 | D — The face | Client, record UI, staff console, member portal | ⬜ |
 | E — Compatibility surface | OAuth, Bulk, SOAP, streaming | ⬜ |
 | F — Proof and polish | Club org, migration, lifecycle, deployment | ⬜ |
@@ -71,7 +71,7 @@ API server with metadata-driven storage, a real query language, and enforced sec
 | 10 | **Validation and workflow rules.** Field-filter and formula criteria, three trigger types, field updates (re-validated), email alerts, tasks, outbound messages, time-based triggers. The first real club rules are now configuration. | ✅ |
 | 11 | **Flow engine.** JSON DSL interpreter — assignment, decision, loop, get/create/update/delete records, email, post to feed, subflow. Record-triggered before-save and after-save, limit-accounted, cycle-guarded. | ✅ |
 | 12 | **Approval processes.** Entry criteria, multi-step chains with skip conditions, user/manager/queue/role approvers, unanimity, record locking derived from pending work items, recall, full history, and a `/process/approvals` REST surface. | ✅ |
-| 13 | **Scheduler.** Advisory-lock job runner: time-based triggers, scheduled flows, recycle-bin purge, weekly export. | ⬜ |
+| 13 | **Scheduler.** Cron parser, advisory-locked multi-org tick, time-based workflow triggers, outbound messages, scheduled flows, recycle-bin purge, weekly CSV export, email dispatch (.eml or SMTP). | ✅ |
 | 14 | **SOSL and global search.** | ⬜ |
 | 15 | **Booking and inventory engine.** ⚠️ The one piece metadata does not give free — correct availability needs a real allocation model with database-level exclusion constraints. Nightly room inventory, restaurant covers per service period, time-slot holds on venues. Design task, not an implementation detail. | ⬜ |
 | 16 | **Model the club domain as metadata.** Membership, applications, bookings, guests, reciprocals, societies. No club-specific engine code. | ⬜ |
@@ -119,5 +119,8 @@ Recorded so nobody mistakes them for oversights:
   the pre-check, so the whole batch fails instead of the one record. Data stays correct.
 - **Screen flows** are parsed and interpreted headlessly — there is no UI to pause against until
   the client exists, so a screen element simply continues.
+- **Advisory locking is skipped on the embedded driver**, which has one connection and one
+  process — there is nothing to coordinate, and holding the lock would starve the work itself.
+  Real Postgres takes the lock normally.
 - **`npm run dev`** starts no client until task 19.
 - **`npm install`** needs `--cache <dir>` under a sandbox that blocks `~/.npm`.
