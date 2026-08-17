@@ -10,3 +10,8 @@ client/dist/
 coverage/
 *.tsbuildinfo
 .DS_Store
+
+# Obsidian workspace state (per-machine, not shared)
+CRM Details/.obsidian/workspace.json
+CRM Details/.obsidian/workspace-mobile.json
+CRM Details/.obsidian/plugins/

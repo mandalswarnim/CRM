@@ -1,5 +1,10 @@
 # Meridian — project context
 
+> **The full knowledge base is the Obsidian vault at `CRM Details/`.** Start at
+> `CRM Details/Start Here.md`. It holds the reasoning behind decisions, the club domain, open
+> questions, and the traps that have already cost time — read `Engineering Notes.md` before writing
+> an engine that calls another engine. This file is the short version; keep both current.
+
 ## What this is
 
 A multi-tenant, **metadata-driven CRM platform** modelled on Salesforce, wire-compatible with the
