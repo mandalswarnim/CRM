@@ -90,6 +90,8 @@ export interface ObjectSpec {
   activitiesEnabled?: boolean;
   searchEnabled?: boolean;
   reportsEnabled?: boolean;
+  /** Declares this object's records as drivers of inventory allocation. */
+  booking?: import('../inventory/types.js').BookingConfig;
   fields: FieldSpec[];
   listViews?: ListViewSpec[];
   layoutSections?: LayoutSectionSpec[];
@@ -272,8 +274,8 @@ export async function installObject(c: DbClient, spec: ObjectSpec): Promise<Inst
     `INSERT INTO object_def (
        id, api_name, label, plural_label, key_prefix, is_custom, description, sharing_model,
        feed_enabled, history_enabled, activities_enabled, search_enabled, reports_enabled,
-       name_field_label, name_field_type, auto_number_format, icon, color)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+       name_field_label, name_field_type, auto_number_format, icon, color, booking)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
     [
       objectId,
       spec.apiName,
@@ -292,7 +294,8 @@ export async function installObject(c: DbClient, spec: ObjectSpec): Promise<Inst
       spec.nameFieldType ?? 'Text',
       spec.autoNumberFormat ?? null,
       spec.icon ?? null,
-      spec.color ?? null
+      spec.color ?? null,
+      spec.booking ? JSON.stringify(spec.booking) : null
     ]
   );
   // Store the name-field API name (CaseNumber / Subject) in the label row via org convention:

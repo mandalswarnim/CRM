@@ -42,10 +42,9 @@ and that decision reprioritises much of the roadmap.
 
 ## Current state
 
-Twelve commits, plus SOSL and global search uncommitted in the working tree; ~12,100 lines of
-source and ~5,050 of tests, against a spec that lands nearer 30–40k. **317 tests passing.**
-Phases A–B are complete and Phase C is 6/10 — the whole interpretive core plus the automation
-stack on top of it:
+Thirteen commits, plus the booking engine uncommitted in the working tree; ~13,000 lines of source
+and ~5,850 of tests, against a spec that lands nearer 30–40k. **354 tests passing.** Phases A–B are
+complete and Phase C is 7/10 — the whole interpretive core plus the automation stack on top of it:
 
 - `server/src/db/` — dual pg/PGlite driver, system + tenant DDL, org provisioning, SF-style IDs
 - `server/src/formula/` — formula language lexer/parser/evaluator, ~60 functions
@@ -55,6 +54,7 @@ stack on top of it:
 - `server/src/dml/` — the save pipeline: coercion, validation, recycle bin, cascade, save-order hooks
 - `server/src/soql/` — lexer, parser, security rewrite, SQL compiler, executor, queryMore paging
 - `server/src/sosl/` — `FIND {…}` parser, tsquery compiler, search execution, typeahead
+- `server/src/inventory/` — bookable resources, allocation, holds, availability
 - `server/src/security/` — profiles/permission sets, FLS, OWD + role hierarchy + sharing rules +
   manual shares, enforced in both the query path and the DML path
 - `server/src/effects/` — rollup summaries, field history, tracked-change feed items, tsvector
@@ -69,12 +69,13 @@ stack on top of it:
   triggers, scheduled flows, recycle-bin purge, weekly CSV export, email dispatch (.eml or SMTP)
 - `server/src/http/routes/` — the Salesforce-compatible REST surface: sobjects CRUD, describe,
   upsert by external id, query/queryAll/queryMore, composite (+batch, sobjects, tree), limits,
-  recent, `/process/approvals`, `/search`, `/parameterizedSearch`, `/search/suggestions`
+  recent, `/process/approvals`, `/search`, `/parameterizedSearch`, `/search/suggestions`,
+  `/inventory/resources`, `/inventory/availability`, `/inventory/reservations`
 
-Four engines register against the DML hooks — security, effects, automation, flow — via
-`installSecurity()`, `installEffects()`, `installAutomation()`, `installFlows()`. `index.ts` calls
-all four at boot; before that the permissive default policy is what runs, so **tests that need
-enforcement must call the installers themselves**.
+Five engines register against the DML hooks — security, effects, automation, flow, inventory — via
+`installSecurity()`, `installEffects()`, `installAutomation()`, `installFlows()`,
+`installInventory()`. `index.ts` calls all five at boot; before that the permissive default policy
+is what runs, so **tests that need enforcement must call the installers themselves**.
 
 Approval is the exception: record locking is enforced from inside `dml/pipeline.ts`, which reaches
 into `approval/engine.ts` for `lockedRecordIds()` through a dynamic import to break the cycle. It
@@ -87,9 +88,22 @@ automation stack is verified end to end too: a validation rule blocks a save, a 
 stamps a field, an approval chain routes through two steps and fires a field update on approval,
 and history, feed and search index all follow the write.
 
-**Next on the critical path**: the booking and inventory engine (#15), the hard one — and it needs
-a design decision before any code: first-class engine alongside the metadata engine, or a
-specialised object type within it?
+**Next on the critical path**: modelling the club domain as metadata (#16). The booking half now
+has an engine to sit on — bedrooms, covers and venues are `inventory_resource` rows — but the
+counts and the rules are blocked on the rulebook PDFs.
+
+**Booking availability is a generic engine configured by metadata** (`server/src/inventory/`), which
+is how the club stays data. A resource is either `exclusive` (one allocation at a time — the
+Wellington Suite, the Boardroom) or a `pool` (N units per grain step — King rooms, Dining Room
+covers). `Booking__c` is an ordinary metadata object whose `booking` config names which fields mean
+resource, start and end; a DML hook allocates in the `validate` stage, so losing the race for the
+last room aborts the save rather than leaving a booking with no room behind it.
+
+PGlite has no `btree_gist`, so the textbook `EXCLUDE (resource_id WITH =, span WITH &&)` cannot be
+built there. The resource is folded into the range instead — each one owns a band of the number
+line at `ordinal × STRIDE` — so a single `EXCLUDE USING gist (span WITH &&)` needs no extension and
+behaves identically on both drivers. Do not "simplify" this back to the textbook form; the tests
+would stop enforcing the guarantee.
 
 **The gap between the code and the stated goal**: automation is configured by inserting rows into
 tenant tables (`validation_rule`, `workflow_rule`, `flow_def`, `approval_process`). There is no

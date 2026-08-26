@@ -195,9 +195,8 @@ describe('rollup summaries', () => {
     await deleteRecords(ctx, 'Membership__c', [child]);
     expect((await readContact(ctx, member)).MembershipCount__c).toBe(0);
 
+    // Undelete fires the side-effect hooks, so the rollup is correct immediately.
     await undeleteRecords(ctx, 'Membership__c', [child]);
-    // Undelete does not currently re-run rollups; recompute happens on the next child save.
-    await updateRecord(ctx, 'Membership__c', child, { Subscription__c: 900 });
     expect((await readContact(ctx, member)).MembershipCount__c).toBe(1);
   });
 

@@ -112,6 +112,7 @@ export async function buildOrgMeta(c: DbClient, orgId: string, schema: string): 
       autoNumberFormat: row.auto_number_format,
       icon: row.icon,
       color: row.color,
+      booking: row.booking ? (typeof row.booking === 'string' ? JSON.parse(row.booking) : row.booking) : null,
       table: tableFor(row.api_name),
       fields: new Map(),
       fieldList: [],

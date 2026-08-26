@@ -126,6 +126,11 @@ export interface ObjectMeta {
   autoNumberFormat?: string | null;
   icon?: string | null;
   color?: string | null;
+  /**
+   * How this object's records drive inventory allocation, when they do. Ordinary metadata: it is
+   * what lets `Booking__c` book a room without the engine knowing what a room is.
+   */
+  booking?: import('../inventory/types.js').BookingConfig | null;
   /** Physical table name in the tenant schema. */
   table: string;
   fields: Map<string, FieldMeta>; // keyed by lower-cased api name

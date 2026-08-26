@@ -31,6 +31,7 @@ CREATE TABLE object_def (
   auto_number_format text,                                -- e.g. INV-{0000}
   auto_number_seq    bigint NOT NULL DEFAULT 0,
   icon               text,                                -- SLDS-style icon key
+  booking            jsonb,                               -- allocation wiring; see inventory/types.ts
   color              text,
   created_date       timestamptz NOT NULL DEFAULT now(),
   last_modified_date timestamptz NOT NULL DEFAULT now()
@@ -546,6 +547,78 @@ CREATE TABLE search_index (
 );
 CREATE INDEX search_tsv_idx ON search_index USING gin (tsv);
 CREATE INDEX search_object_idx ON search_index (object_api);
+
+-- ------------------------------------------------------------- inventory --
+
+-- A bookable thing, or a pool of interchangeable units.
+--
+--   exclusive — one allocation at a time: the Wellington Suite, the Boardroom, room 12
+--   pool      — `capacity` units per grain step: restaurant covers, "any King room"
+--
+-- `ordinal` is the stride multiplier that folds the resource into the allocation range, so a
+-- single range exclusion constraint can enforce "no double booking" without btree_gist (which
+-- the embedded driver does not have). See server/src/inventory/span.ts.
+CREATE TABLE inventory_resource (
+  id          char(18) PRIMARY KEY,
+  api_name    text NOT NULL UNIQUE,
+  label       text NOT NULL,
+  kind        text NOT NULL DEFAULT 'Resource',      -- Bedroom | Venue | Cover | anything
+  mode        text NOT NULL DEFAULT 'exclusive',     -- exclusive | pool
+  capacity    integer NOT NULL DEFAULT 1,
+  -- Units a pool may exceed capacity by; 0 means never overbook.
+  overbook    integer NOT NULL DEFAULT 0,
+  grain       text NOT NULL DEFAULT 'minute',        -- minute | day
+  ordinal     bigint NOT NULL UNIQUE,
+  -- Opening windows as [{day:0-6, from:'18:00', to:'21:30'}]; null means always open.
+  windows     jsonb,
+  active      boolean NOT NULL DEFAULT true,
+  attributes  jsonb NOT NULL DEFAULT '{}',
+  CHECK (mode IN ('exclusive','pool')),
+  CHECK (grain IN ('minute','day')),
+  CHECK (capacity >= 1),
+  CHECK (overbook >= 0)
+);
+CREATE SEQUENCE inventory_resource_ordinal_seq START 1;
+
+-- One reservation of one resource for one span.
+--
+-- The exclusion constraint is the whole point: two staff booking the Wellington Suite for
+-- overlapping nights cannot both win, whatever the application does. `exclusive` is stored rather
+-- than joined so the constraint can be partial — pool resources are governed by inventory_usage
+-- instead, and released allocations stop blocking.
+CREATE TABLE inventory_allocation (
+  id          char(18) PRIMARY KEY,
+  resource_id char(18) NOT NULL REFERENCES inventory_resource(id) ON DELETE CASCADE,
+  object_api  text NOT NULL,
+  record_id   char(18) NOT NULL,
+  quantity    integer NOT NULL DEFAULT 1,
+  starts_at   timestamptz NOT NULL,
+  ends_at     timestamptz NOT NULL,
+  span        int8range NOT NULL,
+  exclusive   boolean NOT NULL,
+  status      text NOT NULL DEFAULT 'Reserved',      -- Reserved | Held | Released
+  expires_at  timestamptz,                           -- holds only
+  created_by  char(18),
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  CHECK (status IN ('Reserved','Held','Released')),
+  CHECK (quantity >= 1),
+  CHECK (ends_at > starts_at),
+  EXCLUDE USING gist (span WITH &&) WHERE (exclusive AND status <> 'Released')
+);
+CREATE INDEX alloc_record_idx ON inventory_allocation (record_id);
+CREATE INDEX alloc_resource_idx ON inventory_allocation (resource_id, starts_at);
+CREATE INDEX alloc_expiry_idx ON inventory_allocation (expires_at) WHERE status = 'Held';
+
+-- Capacity counters for pool resources: one row per resource per grain step.
+-- The CHECK is what actually prevents overselling; concurrent writers serialise on the row.
+CREATE TABLE inventory_usage (
+  resource_id char(18) NOT NULL REFERENCES inventory_resource(id) ON DELETE CASCADE,
+  step        bigint NOT NULL,
+  taken       integer NOT NULL DEFAULT 0,
+  ceiling     integer NOT NULL,
+  PRIMARY KEY (resource_id, step),
+  CHECK (taken >= 0 AND taken <= ceiling)
+);
 
 -- ----------------------------------------------------------------- misc/ux --
 

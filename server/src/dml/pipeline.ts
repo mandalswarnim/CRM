@@ -739,8 +739,10 @@ export async function undeleteRecords(
   ctx.limits.consume('dmlRows', ids.length);
 
   const results: SaveResult[] = [];
+  let committed: DmlEvent | null = null;
   await ctx.tenant(async (c) => {
     await inTransaction(c, async () => {
+      const changes: RecordChange[] = [];
       for (const raw of ids) {
         const id = normalizeId(raw);
         const row = id
@@ -751,6 +753,7 @@ export async function undeleteRecords(
           results.push(toFailure(id ?? String(raw), Errors.notFound(`entity is not in the recycle bin: ${raw}`)));
           continue;
         }
+        changes.push({ id, before: null, after: rowToApi(obj, row), input: {}, updates: {} });
         await c.query(
           `UPDATE ${tableFor(obj.apiName)}
               SET is_deleted = false, deleted_date = NULL, last_modified_by_id = $2,
@@ -772,8 +775,19 @@ export async function undeleteRecords(
         }
         results.push(toResult(id, false));
       }
+
+      // Restoring a record has to reach the engines: a booking coming back out of the recycle bin
+      // must re-claim its room, and the search index has to learn the record exists again.
+      if (changes.length && !opts.skipAutomation) {
+        const event: DmlEvent = { ctx, client: c, object: obj, operation: 'undelete', changes };
+        await runStage('afterSave', event);
+        await runStage('sideEffects', event);
+        committed = event;
+      }
     });
   });
+
+  if (committed && !opts.skipAutomation && !opts.client) await runStage('afterCommit', committed);
   return results;
 }
 

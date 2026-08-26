@@ -1,6 +1,6 @@
 ---
 tags: [decisions, adr]
-updated: 2026-08-17
+updated: 2026-08-26
 ---
 
 # Decisions
@@ -82,6 +82,27 @@ It is the "get my data out" guarantee. A delta that silently misses rows is wors
 ### Advisory locking is skipped on the embedded driver
 It coordinates *replicas*. PGlite is one connection in one process — nothing to coordinate, and
 holding the lock would starve the work itself. See [[Engineering Notes#The nested-connection trap]].
+
+---
+
+## Booking is a generic engine configured by metadata
+
+**Decided in [[Roadmap#15 Booking and inventory engine|#15]].** The parked question was "first-class
+engine, or a specialised object type within the metadata engine?" The answer is *both halves of what
+each option was protecting*: a **generic allocation engine** whose configuration is ordinary
+metadata.
+
+`server/src/inventory/` owns real tables and real constraints, because correct availability needs
+them and JSONB cannot carry an exclusion constraint. But it knows nothing about the club — a
+resource is "a thing that can be booked", and `Booking__c` is an ordinary metadata object that
+declares which of its fields mean resource, start and end. The club stays data.
+
+**Why not the object-type route**: records live in JSONB, so a constraint needs real typed columns,
+which means the installer would generate a side-table per bookable object anyway — the same design
+with N constraints to maintain instead of one.
+
+**What it cost**: the textbook constraint needs `btree_gist`, which PGlite lacks, so the resource is
+folded into the range. See [[Engineering Notes#Folding the resource into the range]].
 
 ---
 

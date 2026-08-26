@@ -5,7 +5,7 @@ The plan of record for building the platform and the Oriental Club org on top of
 
 Status: ✅ done · 🚧 in progress · ⬜ not started
 
-Last updated: 26 August 2026 · 317 tests passing · ~12,100 lines
+Last updated: 26 August 2026 · 354 tests passing · ~13,000 lines
 
 ---
 
@@ -18,7 +18,7 @@ API server with metadata-driven storage, a real query language, and enforced sec
 |---|---|---|
 | A — Make it run | Server boots, DML and SOQL work | ✅ |
 | B — First verifiable milestone | Security enforced, REST API live | ✅ |
-| C — Platform behaviours | Rollups, automation, scheduling, search | 🚧 6/10 |
+| C — Platform behaviours | Rollups, automation, scheduling, search, bookings | 🚧 7/10 |
 | D — The face | Client, record UI, staff console, member portal | ⬜ |
 | E — Compatibility surface | OAuth, Bulk, SOAP, streaming | ⬜ |
 | F — Proof and polish | Club org, migration, lifecycle, deployment | ⬜ |
@@ -73,7 +73,7 @@ API server with metadata-driven storage, a real query language, and enforced sec
 | 12 | **Approval processes.** Entry criteria, multi-step chains with skip conditions, user/manager/queue/role approvers, unanimity, record locking derived from pending work items, recall, full history, and a `/process/approvals` REST surface. | ✅ |
 | 13 | **Scheduler.** Cron parser, advisory-locked multi-org tick, time-based workflow triggers, outbound messages, scheduled flows, recycle-bin purge, weekly CSV export, email dispatch (.eml or SMTP). | ✅ |
 | 14 | **SOSL and global search.** `FIND {…}` parser with phrases, AND/OR/NOT and trailing wildcards; ALL/NAME/EMAIL/PHONE/SIDEBAR search groups as tsvector weight masks; `RETURNING` with per-object WHERE/ORDER BY/LIMIT; `/search`, `/parameterizedSearch`, `/search/suggestions` typeahead; `reindexSearch` scheduled job. Matches are re-queried through the SOQL compiler, so sharing and FLS are inherited rather than reimplemented. | ✅ |
-| 15 | **Booking and inventory engine.** ⚠️ The one piece metadata does not give free — correct availability needs a real allocation model with database-level exclusion constraints. Nightly room inventory, restaurant covers per service period, time-slot holds on venues. Design task, not an implementation detail. | ⬜ |
+| 15 | **Booking and inventory engine.** A generic allocation engine configured by metadata: `inventory_resource` (exclusive things or capacity pools), `inventory_allocation` (range exclusion constraint), `inventory_usage` (per-step counters). Holds with expiry, overbooking policy, opening hours as booking windows, availability query, REST surface, `expireHolds` job. `Booking__c` stays an ordinary metadata object that declares its `booking` wiring. PGlite has no `btree_gist`, so the resource is folded into the range and a single extension-free constraint carries the guarantee on both drivers. | ✅ |
 | 16 | **Model the club domain as metadata.** Membership, applications, bookings, guests, reciprocals, societies. No club-specific engine code. | ⬜ |
 | 17 | **Encode club rules as configurable metadata.** Guest limits, member status gates, accommodation eligibility and the Member/Associate sharing rule, cancellation windows, children 10+, outlet hours as booking windows. | ⬜ |
 | 18 | **Guests and reciprocal visits.** Letters of introduction, per-club restrictions, inbound visitor tracking. | ⬜ |

@@ -1,6 +1,6 @@
 ---
 tags: [architecture, reference]
-updated: 2026-08-17
+updated: 2026-08-26
 ---
 
 # Architecture
@@ -19,14 +19,15 @@ that does not all exist. This note describes what is actually built.
 | Frontend | React 18 + Vite *(not yet built — [[Roadmap#19 Client foundation\|#19]])* |
 | Auth | scrypt, opaque hashed session tokens |
 | Search | Postgres `tsvector`, weighted by field kind, maintained on every write |
+| Availability | `int8range` exclusion constraint, resource folded into the range |
 
 ## Module map
 
 ```
 server/src/
 ├── config.ts        environment-sourced config
-├── index.ts         boot: migrate → installSecurity → installAutomation
-│                          → installFlows → installEffects → Scheduler.start
+├── index.ts         boot: migrate → installSecurity → installAutomation → installFlows
+│                          → installEffects → installInventory → Scheduler.start
 ├── db/              dual pg/PGlite driver, system + tenant DDL, provisioning, SF-style IDs
 ├── util/            SfError (Salesforce wire shapes), 15/18-char ID generation
 ├── runtime/         LimitContext (governor limits), RequestContext (org + user + tenant)
@@ -36,6 +37,7 @@ server/src/
 ├── dml/             the save pipeline + five named hooks
 ├── soql/            lexer, parser, security rewrite, SQL compiler, executor, paging
 ├── sosl/            FIND parser, tsquery compiler, search execution, typeahead
+├── inventory/       resources, allocations, holds, availability
 ├── security/        profiles, permission sets, FLS, OWD, role hierarchy, sharing
 ├── automation/      validation rules, workflow rules, merge fields
 ├── flow/            JSON DSL interpreter
@@ -56,7 +58,8 @@ insert / update / delete
     │
     ├─ coerce + system-validate (types, required, picklist, lookup, unique)
     ├─ beforeSave    → Flow (before-save, mutates $Record, no extra write)
-    ├─ validate      → Validation rules (formula = error condition)
+    ├─ validate      → Validation rules (formula = error condition),
+    │                  inventory allocation (losing the last room aborts the save)
     ├─ WRITE
     ├─ afterSave     → Workflow rules, Flow (after-save)
     ├─ sideEffects   → Rollups, history, feed, search index, computed shares
@@ -94,7 +97,6 @@ generated SQL flat and the row shaping honest.
 ## What is not built yet
 
 - **Client** — `client/` is a `package.json` and nothing else
-- **Booking engine** — [[Roadmap#15 Booking and inventory engine|#15]], the real design problem
 - **OAuth, Bulk, SOAP, streaming** — [[Roadmap#27 Remaining API compatibility|#27]]
 - **Reports, dashboards, Setup UI** — Phase D
 

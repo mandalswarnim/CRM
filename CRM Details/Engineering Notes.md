@@ -1,6 +1,6 @@
 ---
 tags: [engineering, gotchas]
-updated: 2026-08-17
+updated: 2026-08-26
 ---
 
 # Engineering Notes
@@ -14,7 +14,9 @@ that calls another engine.**
 - Tests are vitest against ephemeral in-memory PGlite (`createEphemeralDb`)
 - British English in user-facing copy; `en_GB`, `Europe/London`, GBP are the org defaults
 - Errors are always `SfError` so the wire shape stays compatible
-- New engines register against [[Architecture#The save order|DML hooks]] — never edit the pipeline
+- New engines register against [[Architecture#The save order|DML hooks]] — never edit the pipeline.
+  The one licence: adding a *missing stage call* so a path fires hooks at all, as
+  [[Roadmap#15 Booking and inventory engine|#15]] did for undelete. Engine logic still stays out.
 
 ## Commands
 
@@ -53,6 +55,55 @@ work it guarded needed one.
 so there is nothing to coordinate.
 
 **The rule**: if you hold a connection, everything inside must use *that* client. Pass it down.
+
+---
+
+## Folding the resource into the range
+
+> [!danger] PGlite has no `btree_gist`. The textbook booking constraint cannot be built on it.
+
+The standard way to stop double-booking is
+
+```sql
+EXCLUDE USING gist (resource_id WITH =, span WITH &&)
+```
+
+but the `=` operator on a text column needs **`btree_gist`**, and the embedded driver does not have
+it — `extension "btree_gist" is not available`. Since every test runs against PGlite, taking that
+route would have left *the one guarantee this engine exists to provide* untested.
+
+So the resource is folded into the range instead. Each resource owns a private band of the number
+line, `ordinal × STRIDE`, and the span is offset into it:
+
+```
+room 7, 1–5 Sep → [7×STRIDE + 2119680, 7×STRIDE + 2125440)
+room 8, 1–5 Sep → [8×STRIDE + 2119680, 8×STRIDE + 2125440)
+                   ↳ same dates, and they still cannot overlap
+```
+
+A plain `EXCLUDE USING gist (span WITH &&)` — no extension — then *means* "no double booking", and
+behaves identically on both drivers. `STRIDE` is 4×10⁹ minutes (~7,600 years), which bounds the
+supported dates; anything before 1970 or beyond that is refused rather than silently wrapped into a
+neighbour's band.
+
+**Two mechanisms, both enforced by the database**, because "one room" and "sixty covers" are
+genuinely different problems:
+
+- `exclusive` → the range exclusion constraint above
+- `pool` → `inventory_usage`, one counter row per grain step, with `CHECK (taken <= ceiling)`
+
+Neither is a read-then-write, so neither can lose a race. Two tests fire concurrent reservations at
+the last slot and assert exactly one wins.
+
+### Allocation runs in `validate`, not `sideEffects`
+Losing the race for the last room must **abort the save**, exactly as a validation rule does. A
+booking record that exists without capacity behind it is precisely the bug the engine is for.
+Delete and undelete never reach `validate` (see below), so they are handled in `afterSave`.
+
+### Expired holds are released on the reserve path
+Not left to the sweeper. Correctness must not depend on how recently a scheduled job ran — an
+expired hold keeping a room off sale is a lost booking. `expireHolds` is housekeeping so
+*availability* stays honest between reservations, not the mechanism.
 
 ---
 
@@ -114,6 +165,12 @@ the parent traversal name. Parent names derive from the API name: `AccountId` �
 Batching groups children by their FK, but `SELECT Id, LastName FROM Contacts` does not return
 `AccountId`. The FK is added to the child query and stripped from the output afterwards.
 
+### `undeleteRecords` fired no hooks at all
+Not a missing case — the stage calls were simply absent, so every engine missed restores: rollups
+went stale, the search index never re-added the record, and a restored booking would have had no
+room behind it. Adding `afterSave` and `sideEffects` to that path fixed all four at once, and no
+existing test changed behaviour except the rollup one that had been documenting the gap.
+
 ### `historyEnabled` defaults to true
 So the real gate is whether any field is actually tracked. Without that check, every insert on every
 object wrote a history row for nothing.
@@ -131,7 +188,7 @@ Recorded so they are not mistaken for oversights:
 - **Formula fields** can be selected but not filtered, sorted or grouped on — nothing is stored.
   Raises `MALFORMED_QUERY` rather than returning wrong rows. *(Rollups are stored, so they are
   queryable.)*
-- **Undelete does not re-run rollups** — a restored child is recounted on its next save.
+- ~~Undelete does not re-run rollups~~ — **fixed in [[Roadmap#15 Booking and inventory engine|#15]]**: `undeleteRecords` now fires `afterSave` and `sideEffects`, so rollups, history, feed and the search index all see a restore. It fired no hooks at all before, which the booking engine could not live with.
 - **Polymorphic traversal** needs `TYPEOF`; unimplemented, raises a clear error.
 - **Duplicate external IDs within one batch** are caught by the unique index rather than the
   pre-check, so the whole batch fails instead of the one record. Data stays correct.

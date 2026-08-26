@@ -34,14 +34,14 @@ unknown. The code and its reference docs live in the repo alongside it.
 
 | | |
 |---|---|
-| Phase | A ✅ · B ✅ · C 🚧 (6/10) · D–F ⬜ |
-| Tests | 317 passing |
-| Code | ~12,100 lines across 19 modules |
+| Phase | A ✅ · B ✅ · C 🚧 (7/10) · D–F ⬜ |
+| Tests | 354 passing |
+| Code | ~13,000 lines across 20 modules |
 | Branch | `claude/salesforce-crm-clone-g05zeb` |
-| Latest | SOSL and global search |
+| Latest | Booking and inventory engine |
 
-**Next up**: [[Roadmap#15 Booking and inventory engine|#15 the booking engine]] — the one genuinely
-hard design problem left, and it needs a decision before any code.
+**Next up**: [[Roadmap#16 Model the club domain as metadata|#16 the club domain as metadata]] —
+which is where the rulebook finally bites. The hard engine problem is done.
 
 **Blocked on you**: [[Open Questions#1 Salesforce replacement strategy|the Salesforce decision]] and
 [[Open Questions#2 The rulebook PDFs|the rulebook PDFs]].

@@ -11,6 +11,7 @@ import { updateRecords } from '../dml/pipeline.js';
 import { loadFlow, runFlow } from '../flow/engine.js';
 import { dispatchQueuedEmail } from './email.js';
 import { indexRecords } from '../effects/search.js';
+import { expireHolds } from '../inventory/engine.js';
 
 function parseJson<T>(value: any, fallback: T): T {
   if (value == null) return fallback;
@@ -108,7 +109,8 @@ export type CronJobKind =
   | 'purgeRecycleBin'
   | 'emailDispatch'
   | 'reportSubscription'
-  | 'reindexSearch';
+  | 'reindexSearch'
+  | 'expireHolds';
 
 /** Dispatch one due cron job. Unknown kinds raise, so a typo in Setup is visible rather than silent. */
 export async function runCronJob(ctx: RequestContext, job: { kind: string; payload: any; name: string }): Promise<number> {
@@ -133,6 +135,9 @@ export async function runCronJob(ctx: RequestContext, job: { kind: string; paylo
 
     case 'reindexSearch':
       return reindexSearch(ctx, payload.objects);
+
+    case 'expireHolds':
+      return expireHolds(ctx);
 
     case 'reportSubscription':
       // Reports arrive with task 25; the job is accepted so schedules can be configured now.

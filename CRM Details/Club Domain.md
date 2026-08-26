@@ -117,7 +117,7 @@ Member."* A genuine validation rule on the booking's occupants.
 
 Rates vary by weekday/weekend and by month. 12.5% service charge on reciprocal and guest bookings.
 
-❓ **How many bedrooms of each type** — this is the inventory the availability engine allocates
+❓ **How many bedrooms of each type** — the engine exists ([[Roadmap#15 Booking and inventory engine|#15]]); these are the `capacity` numbers it still needs
 ❓ Check-in/out times; min and max stay; how far ahead booking opens; deposits
 
 ---
@@ -134,6 +134,8 @@ Rates vary by weekday/weekend and by month. 12.5% service charge on reciprocal a
 > [!tip] Hours are booking windows
 > A reservation outside them is invalid. They differ per outlet *and* per day of week, so they must
 > be data on the outlet, not constants.
+> **Implemented in [[Roadmap#15 Booking and inventory engine|#15]]**: `inventory_resource.windows`
+> holds them, and a booking outside them is refused. The hours above are still to be confirmed.
 
 ❓ Table inventory and covers per service; fixed sittings or rolling; floor plan needed?; walk-ins
 

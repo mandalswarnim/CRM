@@ -5,7 +5,7 @@ import { rawInsert, ADMIN_PERMS } from '../src/db/provision.js';
 import { RequestContext } from '../src/runtime/context.js';
 import { LimitContext } from '../src/runtime/limits.js';
 import { generateId, KEY_PREFIXES } from '../src/util/ids.js';
-import { clearDmlHooks, deleteRecords, insertRecord, updateRecord } from '../src/dml/index.js';
+import { clearDmlHooks, deleteRecords, insertRecord, undeleteRecords, updateRecord } from '../src/dml/index.js';
 import { resetSecurityPolicy } from '../src/soql/index.js';
 import { installEffects, indexableText } from '../src/effects/index.js';
 import {
@@ -331,6 +331,10 @@ describe('the index follows the record', () => {
 
     await deleteRecords(ctx, 'Reciprocal_Club__c', [id]);
     expect((await runSosl(ctx, 'FIND {cork} RETURNING Reciprocal_Club__c(Id)')).searchRecords).toEqual([]);
+
+    // Coming back out of the recycle bin puts the record back in the index.
+    await undeleteRecords(ctx, 'Reciprocal_Club__c', [id]);
+    expect((await runSosl(ctx, 'FIND {cork} RETURNING Reciprocal_Club__c(Id)')).searchRecords).toHaveLength(1);
   });
 
   it('buckets field values by kind', async () => {

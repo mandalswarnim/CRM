@@ -13,12 +13,12 @@ Status: ✅ done · 🚧 in progress · ⬜ not started
 |---|---|---|
 | **A** Make it run | Server boots, DML and SOQL work | ✅ |
 | **B** First milestone | Security enforced, REST API live | ✅ |
-| **C** Platform behaviours | Rollups, automation, scheduling, search, bookings | 🚧 6/10 |
+| **C** Platform behaviours | Rollups, automation, scheduling, search, bookings | 🚧 7/10 |
 | **D** The face | Client, record UI, staff console, member portal | ⬜ |
 | **E** Compatibility | OAuth, Bulk, SOAP, streaming | ⬜ |
 | **F** Proof and polish | Club org, migration, lifecycle, deployment | ⬜ |
 
-**317 tests passing · ~12,100 lines · branch `claude/salesforce-crm-clone-g05zeb`**
+**354 tests passing · ~13,000 lines · branch `claude/salesforce-crm-clone-g05zeb`**
 
 ---
 
@@ -103,23 +103,40 @@ how a change to what gets indexed reaches records nobody has touched since.
 object is re-queried through the SOQL compiler, so sharing and FLS apply exactly as they do to a
 SOQL query. See [[Engineering Notes#Search reuses the query path on purpose]].
 
-### 15 Booking and inventory engine ⬜ ← **next, and the hard one**
+### 15 Booking and inventory engine ✅
 
 > [!warning] The one thing metadata does not give free
 > Everything else about the club is comfortably rows-and-metadata. Availability is not. Preventing
 > two staff double-booking the Wellington Suite needs a **real allocation model with
 > database-level exclusion constraints** — not JSONB and validation rules.
 
-Needs: nightly room inventory per type, restaurant covers per service period, time-slot holds on the
-named venues. Must cover holds and expiry, overbooking policy, and concurrency when two staff book at
-once.
+**Design decision taken**: a *generic allocation engine* whose configuration is metadata — which
+resolves the "engine or object type?" question rather than picking a side. `server/src/inventory/`
+owns `inventory_resource`, `inventory_allocation` and `inventory_usage`; `Booking__c` stays an
+ordinary metadata object that declares `booking` wiring. The engine has never heard of a bedroom.
+See [[Decisions#Booking is a generic engine configured by metadata]].
 
-**Open design question**: is this a first-class engine alongside the metadata engine, or a
-specialised object type within it? Decide before writing code.
+Two resource shapes cover all three booking types:
 
-### 16 Model the club domain as metadata ⬜
+| Mode | Enforced by | The club's cases |
+|---|---|---|
+| `exclusive` | range exclusion constraint | Wellington Suite, Boardroom, Library & Ante Room |
+| `pool` | per-step counter with `CHECK (taken <= ceiling)` | King rooms, Dining Room covers, Members' Bar |
+
+Also: holds with expiry, configurable overbooking, opening hours as booking windows (data on the
+resource — the Members' Bar really is Tuesday to Friday), an availability query, a REST surface,
+and an `expireHolds` scheduled job. **37 tests**, including two that race concurrent bookings for
+the last slot and assert exactly one wins.
+
+> [!danger] PGlite has no `btree_gist`
+> The textbook `EXCLUDE (resource_id WITH =, span WITH &&)` **cannot be built on the embedded
+> driver**, so the resource is folded into the range instead. See
+> [[Engineering Notes#Folding the resource into the range]].
+
+### 16 Model the club domain as metadata ⬜ ← **next**
 Membership, applications, bookings, guests, reciprocals, societies. No club-specific engine code.
-*Blocked on the rulebook.*
+The booking half now has an engine to sit on: bedrooms, covers and venues are `inventory_resource`
+rows. *Still blocked on the rulebook for the counts and the rules.*
 
 ### 17 Encode club rules as metadata ⬜
 Guest limits, member status gates, accommodation eligibility and the Member/Associate sharing rule,

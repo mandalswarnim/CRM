@@ -6,6 +6,7 @@ import { installEffects } from './effects/index.js';
 import { installAutomation } from './automation/index.js';
 import { installFlows } from './flow/index.js';
 import { Scheduler } from './scheduler/index.js';
+import { installInventory } from './inventory/index.js';
 
 async function main(): Promise<void> {
   const db = await getDb();
@@ -14,6 +15,7 @@ async function main(): Promise<void> {
   installAutomation();
   installFlows();
   installEffects();
+  installInventory();
 
   // Runs in every replica; an advisory lock decides which one executes a given org's due work.
   const scheduler = new Scheduler(db);

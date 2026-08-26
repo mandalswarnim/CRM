@@ -1,6 +1,6 @@
 ---
 tags: [log, history]
-updated: 2026-08-17
+updated: 2026-08-26
 ---
 
 # Session Log
@@ -140,10 +140,39 @@ records, so a change to what is indexed reaches rows nobody has touched since.
 
 ---
 
+## Booking and inventory engine
+
+The hard one. Resources, allocations, holds with expiry, overbooking policy, opening hours as
+booking windows, availability, a REST surface. **354 tests.**
+
+**The decision, taken before code**: a generic allocation engine configured by metadata — see
+[[Decisions#Booking is a generic engine configured by metadata]]. Real tables and real constraints,
+because availability needs them; no knowledge of the club, because the club is data.
+
+**The finding that changed the design.** The plan of record — in `CLAUDE.md` and the roadmap — was
+`EXCLUDE (resource_id WITH =, span WITH &&)`. That needs `btree_gist`, and **PGlite does not have
+it**. Checked before writing a line, which was worth doing: the alternative was discovering it after
+building on the assumption, or worse, shipping a guarantee that only real Postgres enforced while
+every test ran on the driver that did not. The resource is folded into the range instead, so one
+extension-free constraint carries the guarantee on both drivers. See
+[[Engineering Notes#Folding the resource into the range]].
+
+**A platform bug fell out of it.** `undeleteRecords` fired **no DML hooks at all** — not a missing
+case, the calls were simply absent. Every engine missed restores: rollups went stale (a gap this
+vault had recorded as deliberate), the search index never re-added the record, and a restored
+booking would have had no room behind it. Adding `afterSave` and `sideEffects` to that path fixed
+all four at once, and the only test that changed was the one documenting the old gap.
+
+**No hang.** The nested-connection rule is now something the design starts from rather than
+discovers.
+
+---
+
 ## Next
 
-[[Roadmap#15 Booking and inventory engine|#15]], which needs a **design decision before any code**:
-first-class engine, or specialised object type?
+[[Roadmap#16 Model the club domain as metadata|#16]] — the club as a seed org. The booking half now
+has an engine to sit on; the counts and the rules still need
+[[Open Questions#2 The rulebook PDFs|the rulebook]].
 
 ---
 
