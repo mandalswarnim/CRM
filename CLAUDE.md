@@ -42,7 +42,7 @@ and that decision reprioritises much of the roadmap.
 
 ## Current state
 
-Thirteen commits, plus the booking engine uncommitted in the working tree; ~13,000 lines of source
+Fourteen commits in; ~13,000 lines of source
 and ~5,850 of tests, against a spec that lands nearer 30–40k. **354 tests passing.** Phases A–B are
 complete and Phase C is 7/10 — the whole interpretive core plus the automation stack on top of it:
 
