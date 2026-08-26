@@ -7,6 +7,7 @@ import { sobjectRoutes } from './sobjects.js';
 import { queryRoutes } from './query.js';
 import { compositeRoutes } from './composite.js';
 import { approvalRoutes } from './approvals.js';
+import { searchRoutes } from './search.js';
 
 /**
  * The root of the Salesforce-compatible REST surface. Only the version list and /limits live here
@@ -37,6 +38,7 @@ export function dataRoutes(db: Db): Router {
   r.use('/v:version', queryRoutes(db));
   r.use('/v:version', compositeRoutes(db));
   r.use('/v:version', approvalRoutes(db));
+  r.use('/v:version', searchRoutes(db));
 
   r.get(
     '/v:version/recent',

@@ -10,6 +10,7 @@ import { executeActions, type WorkflowAction } from '../automation/workflow.js';
 import { updateRecords } from '../dml/pipeline.js';
 import { loadFlow, runFlow } from '../flow/engine.js';
 import { dispatchQueuedEmail } from './email.js';
+import { indexRecords } from '../effects/search.js';
 
 function parseJson<T>(value: any, fallback: T): T {
   if (value == null) return fallback;
@@ -101,7 +102,13 @@ async function fireOutboundMessage(ctx: RequestContext, row: any): Promise<void>
 
 /* -------------------------------- cron jobs -------------------------------- */
 
-export type CronJobKind = 'scheduledFlow' | 'weeklyExport' | 'purgeRecycleBin' | 'emailDispatch' | 'reportSubscription';
+export type CronJobKind =
+  | 'scheduledFlow'
+  | 'weeklyExport'
+  | 'purgeRecycleBin'
+  | 'emailDispatch'
+  | 'reportSubscription'
+  | 'reindexSearch';
 
 /** Dispatch one due cron job. Unknown kinds raise, so a typo in Setup is visible rather than silent. */
 export async function runCronJob(ctx: RequestContext, job: { kind: string; payload: any; name: string }): Promise<number> {
@@ -124,6 +131,9 @@ export async function runCronJob(ctx: RequestContext, job: { kind: string; paylo
     case 'weeklyExport':
       return weeklyExport(ctx, payload.objects);
 
+    case 'reindexSearch':
+      return reindexSearch(ctx, payload.objects);
+
     case 'reportSubscription':
       // Reports arrive with task 25; the job is accepted so schedules can be configured now.
       return 0;
@@ -131,6 +141,43 @@ export async function runCronJob(ctx: RequestContext, job: { kind: string; paylo
     default:
       throw new Error(`Unknown scheduled job kind: ${job.kind}`);
   }
+}
+
+/**
+ * Rebuild the search index from the records themselves.
+ *
+ * The index is maintained on every write, so this is not routine housekeeping — it is the way to
+ * adopt a change to what gets indexed or how it is weighted, without waiting for every record to
+ * be touched again. Safe to re-run: each row is upserted by record id.
+ */
+export async function reindexSearch(ctx: RequestContext, only?: string[]): Promise<number> {
+  const org = await ctx.orgMeta();
+  const wanted = only?.length ? new Set(only.map((o) => o.toLowerCase())) : null;
+  let indexed = 0;
+
+  for (const obj of org.objectList) {
+    if (!obj.searchEnabled || !obj.isQueryable) continue;
+    if (wanted && !wanted.has(obj.apiName.toLowerCase())) continue;
+
+    await ctx.tenant(async (c) => {
+      const rows = await c.query(
+        `SELECT * FROM ${tableFor(obj.apiName)} WHERE is_deleted = false ORDER BY created_date`
+      );
+      if (!rows.rows.length) return;
+      const records = rows.rows.map((raw: any) => ({ id: raw.id, fields: rowToApi(obj, raw) }));
+      await indexRecords(c, obj, records);
+      indexed += records.length;
+    });
+  }
+
+  // Rows whose object is gone, or which were deleted while the index was stale.
+  await ctx.tenant((c) =>
+    c.query(`DELETE FROM search_index WHERE object_api <> ALL($1)`, [
+      org.objectList.filter((o) => o.searchEnabled).map((o) => o.apiName)
+    ])
+  );
+
+  return indexed;
 }
 
 /**

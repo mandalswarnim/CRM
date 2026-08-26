@@ -300,6 +300,22 @@ export async function runQuery(ctx: RequestContext, soql: string, opts: QueryOpt
   return executeQuery(ctx, query, soql, 0, opts);
 }
 
+/**
+ * Run an already-built AST.
+ *
+ * SOSL needs this: it resolves matching record ids from the search index, then re-queries each
+ * object through the ordinary compiler so sharing rewrites and FLS apply to search results exactly
+ * as they do to a SOQL query. `source` is only used for the queryMore locator.
+ */
+export async function runQueryAst(
+  ctx: RequestContext,
+  query: SoqlQuery,
+  source: string,
+  opts: QueryOptions = {}
+): Promise<QueryResultBody> {
+  return executeQuery(ctx, query, source, 0, opts);
+}
+
 export async function runQueryMore(ctx: RequestContext, locator: string, opts: QueryOptions = {}): Promise<QueryResultBody> {
   const state = decodeLocator(locator);
   const query = parseSoql(state.q);

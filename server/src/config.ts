@@ -21,6 +21,7 @@ export const config = {
   /** Governor limits (per synchronous transaction). */
   limits: {
     soqlQueries: 100,
+    soslQueries: 20,
     queryRows: 50000,
     dmlStatements: 150,
     dmlRows: 10000,

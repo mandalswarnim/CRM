@@ -1,6 +1,6 @@
 ---
 tags: [index]
-updated: 2026-08-17
+updated: 2026-08-26
 ---
 
 # Meridian — Start Here
@@ -34,15 +34,14 @@ unknown. The code and its reference docs live in the repo alongside it.
 
 | | |
 |---|---|
-| Phase | A ✅ · B ✅ · C 🚧 (5/10) · D–F ⬜ |
-| Tests | 278 passing |
-| Code | ~11,800 lines across 18 modules |
+| Phase | A ✅ · B ✅ · C 🚧 (6/10) · D–F ⬜ |
+| Tests | 317 passing |
+| Code | ~12,100 lines across 19 modules |
 | Branch | `claude/salesforce-crm-clone-g05zeb` |
-| Latest | `b456882` Scheduler |
+| Latest | SOSL and global search |
 
-**Next up**: [[Roadmap#14 SOSL and global search|#14 SOSL]], then
-[[Roadmap#15 Booking and inventory engine|#15 the booking engine]] — the one genuinely hard design
-problem left.
+**Next up**: [[Roadmap#15 Booking and inventory engine|#15 the booking engine]] — the one genuinely
+hard design problem left, and it needs a decision before any code.
 
 **Blocked on you**: [[Open Questions#1 Salesforce replacement strategy|the Salesforce decision]] and
 [[Open Questions#2 The rulebook PDFs|the rulebook PDFs]].

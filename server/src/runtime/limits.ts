@@ -1,10 +1,11 @@
 import { config } from '../config.js';
 import { Errors } from '../util/errors.js';
 
-export type LimitKind = 'soqlQueries' | 'queryRows' | 'dmlStatements' | 'dmlRows' | 'cpuMs' | 'emails';
+export type LimitKind = 'soqlQueries' | 'soslQueries' | 'queryRows' | 'dmlStatements' | 'dmlRows' | 'cpuMs' | 'emails';
 
 export interface LimitUsage {
   soqlQueries: number;
+  soslQueries: number;
   queryRows: number;
   dmlStatements: number;
   dmlRows: number;
@@ -22,6 +23,7 @@ export class LimitContext {
   readonly max: LimitUsage;
   private readonly used: LimitUsage = {
     soqlQueries: 0,
+    soslQueries: 0,
     queryRows: 0,
     dmlStatements: 0,
     dmlRows: 0,
@@ -66,6 +68,7 @@ export class LimitContext {
     return {
       DailyApiRequests: { Max: config.dailyApiRequests, Remaining: config.dailyApiRequests },
       SoqlQueries: entry('soqlQueries'),
+      SoslQueries: entry('soslQueries'),
       QueryRows: entry('queryRows'),
       DmlStatements: entry('dmlStatements'),
       DmlRows: entry('dmlRows'),

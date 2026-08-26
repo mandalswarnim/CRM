@@ -115,13 +115,35 @@ to four years so an unsatisfiable expression returns null.
 
 ---
 
+## SOSL and global search
+
+`FIND {…}` with phrases, AND/OR/NOT and trailing wildcards; the four search groups; `RETURNING`
+with per-object WHERE / ORDER BY / LIMIT; `/search`, `/parameterizedSearch`, `/search/suggestions`.
+**317 tests.**
+
+**No hang this time** — because the two traps above were already known. The nested-connection rule
+shaped the design: candidate resolution and each re-query take their own client through
+`ctx.tenant()`, which is re-entrant.
+
+**The design decision that mattered**: search does not get its own security. It resolves ids from
+the index, then goes back through the SOQL compiler, so sharing and FLS are inherited rather than
+re-implemented. `runQueryAst()` was added so SOSL could pass a prepared AST rather than build query
+text. See [[Engineering Notes#Search reuses the query path on purpose]].
+
+**Two things Postgres decided for us.** An email address is a *single* lexeme, so `bengalclub.in`
+did not match `enquiries@bengalclub.in` until the parts were indexed too — caught by a test written
+before the behaviour was known. And phone numbers needed a bare-digits form, or `02072901400` would
+never find `020 7290 1400`.
+
+Changing the index format made `reindexSearch` necessary: a scheduled job that rebuilds from the
+records, so a change to what is indexed reaches rows nobody has touched since.
+
+---
+
 ## Next
 
-[[Roadmap#14 SOSL and global search|#14 SOSL]] — the index already exists, this is the query language
-over it.
-
-Then [[Roadmap#15 Booking and inventory engine|#15]], which needs a **design decision before any
-code**: first-class engine, or specialised object type?
+[[Roadmap#15 Booking and inventory engine|#15]], which needs a **design decision before any code**:
+first-class engine, or specialised object type?
 
 ---
 

@@ -42,8 +42,10 @@ and that decision reprioritises much of the roadmap.
 
 ## Current state
 
-Four commits in; roughly 4,000 lines against a spec that lands nearer 30–40k. What exists is the
-interpretive core, built bottom-up with tests (28 passing):
+Twelve commits, plus SOSL and global search uncommitted in the working tree; ~12,100 lines of
+source and ~5,050 of tests, against a spec that lands nearer 30–40k. **317 tests passing.**
+Phases A–B are complete and Phase C is 6/10 — the whole interpretive core plus the automation
+stack on top of it:
 
 - `server/src/db/` — dual pg/PGlite driver, system + tenant DDL, org provisioning, SF-style IDs
 - `server/src/formula/` — formula language lexer/parser/evaluator, ~60 functions
@@ -52,24 +54,61 @@ interpretive core, built bottom-up with tests (28 passing):
 - `server/src/auth/`, `server/src/http/` — scrypt login, opaque hashed session tokens, Express app
 - `server/src/dml/` — the save pipeline: coercion, validation, recycle bin, cascade, save-order hooks
 - `server/src/soql/` — lexer, parser, security rewrite, SQL compiler, executor, queryMore paging
+- `server/src/sosl/` — `FIND {…}` parser, tsquery compiler, search execution, typeahead
 - `server/src/security/` — profiles/permission sets, FLS, OWD + role hierarchy + sharing rules +
   manual shares, enforced in both the query path and the DML path
-
-`installSecurity()` in `security/index.ts` switches the platform from the permissive default policy
-to real enforcement; `index.ts` calls it at boot. Tests that need enforcement call it themselves.
-
+- `server/src/effects/` — rollup summaries, field history, tracked-change feed items, tsvector
+  search index, post-commit change bus
+- `server/src/automation/` — validation rules, workflow rules; field-filter and formula criteria,
+  field updates (re-validated), email alerts, tasks, outbound messages, time-based triggers
+- `server/src/flow/` — JSON-DSL flow interpreter: assignment, decision, loop, get/create/update/
+  delete records, email, post to feed, subflow; record-triggered before- and after-save
+- `server/src/approval/` — entry criteria, multi-step chains with skip conditions,
+  user/manager/queue/role approvers, unanimity, record locking, recall, history
+- `server/src/scheduler/` — cron parser, advisory-locked multi-org tick, time-based workflow
+  triggers, scheduled flows, recycle-bin purge, weekly CSV export, email dispatch (.eml or SMTP)
 - `server/src/http/routes/` — the Salesforce-compatible REST surface: sobjects CRUD, describe,
-  upsert by external id, query/queryAll/queryMore, composite (+batch, sobjects, tree), limits, recent
+  upsert by external id, query/queryAll/queryMore, composite (+batch, sobjects, tree), limits,
+  recent, `/process/approvals`, `/search`, `/parameterizedSearch`, `/search/suggestions`
+
+Four engines register against the DML hooks — security, effects, automation, flow — via
+`installSecurity()`, `installEffects()`, `installAutomation()`, `installFlows()`. `index.ts` calls
+all four at boot; before that the permissive default policy is what runs, so **tests that need
+enforcement must call the installers themselves**.
+
+Approval is the exception: record locking is enforced from inside `dml/pipeline.ts`, which reaches
+into `approval/engine.ts` for `lockedRecordIds()` through a dynamic import to break the cycle. It
+is the one place an engine is wired into the pipeline rather than onto a hook — worth knowing
+before assuming the hook list is the whole story.
 
 **Milestone reached**: curl drives the platform end to end. Create a record, query it with SOQL,
-describe an object, run a composite transaction — all over the wire in Salesforce's shapes.
+describe an object, run a composite transaction — all over the wire in Salesforce's shapes. The
+automation stack is verified end to end too: a validation rule blocks a save, a before-save flow
+stamps a field, an approval chain routes through two steps and fires a field update on approval,
+and history, feed and search index all follow the write.
 
-**Next on the critical path**: DML side effects (#9) — rollups, history, feed, search index —
-which fill the hooks the pipeline already exposes, then automation (#10, #11, #12).
+**Next on the critical path**: the booking and inventory engine (#15), the hard one — and it needs
+a design decision before any code: first-class engine alongside the metadata engine, or a
+specialised object type within it?
 
-Known SOQL gaps, deliberate and documented rather than silently wrong: formula and rollup fields
-can be selected but not filtered, sorted or grouped on (they have no stored column); polymorphic
-relationship traversal needs `TYPEOF`, which is unimplemented and raises a clear error.
+**The gap between the code and the stated goal**: automation is configured by inserting rows into
+tenant tables (`validation_rule`, `workflow_rule`, `flow_def`, `approval_process`). There is no
+setup REST surface and no Setup UI, so a new rule from a new PDF is still a developer job today.
+Closing that is #26, currently behind the whole of Phase D.
+
+**Search is not its own security model.** SOSL resolves matching ids from `search_index`, then
+re-queries each object through the ordinary SOQL compiler with those ids ANDed into the caller's
+`WHERE` — so sharing and FLS are inherited, never reimplemented. `runQueryAst()` exists so SOSL can
+hand over a prepared AST rather than build query text. Search groups (`IN NAME FIELDS`, …) are
+tsvector weight masks: A name, B text, C email, D phone. Changing what gets indexed leaves written
+rows stale, so `reindexSearch` (a scheduled job kind) rebuilds from the records.
+
+Known SOQL gaps, deliberate and documented rather than silently wrong: **formula** fields can be
+selected but not filtered, sorted or grouped on (they have no stored column, and they evaluate
+against the row as shaped — so a formula's source fields must also be in the SELECT list or it
+reads them as blank). Rollups are *not* in this category: they are maintained in the JSONB body on
+every child write, so they filter and sort normally. Polymorphic relationship traversal needs
+`TYPEOF`, which is unimplemented and raises a clear error.
 
 `docs/architecture.md` is a **specification written up front**, not a description of built
 software. Treat it as the target, and check the code before believing any claim in it. The same

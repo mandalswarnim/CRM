@@ -1,6 +1,6 @@
 ---
 tags: [roadmap, status]
-updated: 2026-08-17
+updated: 2026-08-26
 ---
 
 # Roadmap
@@ -13,12 +13,12 @@ Status: ✅ done · 🚧 in progress · ⬜ not started
 |---|---|---|
 | **A** Make it run | Server boots, DML and SOQL work | ✅ |
 | **B** First milestone | Security enforced, REST API live | ✅ |
-| **C** Platform behaviours | Rollups, automation, scheduling, search, bookings | 🚧 5/10 |
+| **C** Platform behaviours | Rollups, automation, scheduling, search, bookings | 🚧 6/10 |
 | **D** The face | Client, record UI, staff console, member portal | ⬜ |
 | **E** Compatibility | OAuth, Bulk, SOAP, streaming | ⬜ |
 | **F** Proof and polish | Club org, migration, lifecycle, deployment | ⬜ |
 
-**278 tests passing · ~11,800 lines · branch `claude/salesforce-crm-clone-g05zeb`**
+**317 tests passing · ~12,100 lines · branch `claude/salesforce-crm-clone-g05zeb`**
 
 ---
 
@@ -90,11 +90,20 @@ derived record locking, recall, full history, `/process/approvals` REST surface.
 Cron parser, advisory-locked multi-org tick, time-based workflow triggers, outbound messages,
 scheduled flows, recycle-bin purge, weekly CSV export, email dispatch (.eml or SMTP).
 
-### 14 SOSL and global search ⬜ ← **next**
-The index has been maintained on every write since #9; this is the query language over it, plus a
-typeahead endpoint for the header search box.
+### 14 SOSL and global search ✅
+`FIND {…}` parser (phrases, AND/OR/NOT, trailing wildcards), the four search groups, `RETURNING`
+with per-object WHERE / ORDER BY / LIMIT, `/search`, `/parameterizedSearch` and a
+`/search/suggestions` typeahead. **39 tests.**
 
-### 15 Booking and inventory engine ⬜ ← **the hard one**
+The index moved to a **weighted** tsvector — A name, B text, C email, D phone — so a search group is
+a weight mask rather than a second table. `reindexSearch` (a scheduled job) rebuilds it, which is
+how a change to what gets indexed reaches records nobody has touched since.
+
+**Security is inherited, not reimplemented**: the index answers *which records match*, then each
+object is re-queried through the SOQL compiler, so sharing and FLS apply exactly as they do to a
+SOQL query. See [[Engineering Notes#Search reuses the query path on purpose]].
+
+### 15 Booking and inventory engine ⬜ ← **next, and the hard one**
 
 > [!warning] The one thing metadata does not give free
 > Everything else about the club is comfortably rows-and-metadata. Availability is not. Preventing

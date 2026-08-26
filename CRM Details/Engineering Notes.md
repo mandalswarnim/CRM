@@ -56,6 +56,44 @@ so there is nothing to coordinate.
 
 ---
 
+## Search reuses the query path on purpose
+
+> [!important] The index knows nothing about sharing. It must never be the thing that decides what
+> a user sees.
+
+[[Roadmap#14 SOSL and global search|#14]] runs in two stages:
+
+1. `search_index` answers **which records match** the term.
+2. Each object is then re-queried through the **ordinary SOQL compiler**, with the matched ids
+   ANDed into the caller's own `WHERE`.
+
+So sharing rewrites and FLS apply to search exactly as they apply to a query, because it *is* a
+query — `runQueryAst()` was added to `soql/execute.ts` so SOSL could hand over a prepared AST
+instead of rebuilding a query as text. Nothing about security is reimplemented in `sosl/`.
+
+The cost is that rows the user cannot see drop out at stage 2, so the index scan deliberately
+reaches past the caller's `LIMIT` (`SCAN_CAP`, 2000) and the result is trimmed afterwards.
+
+### Search terms never become SQL
+The `FIND {…}` expression is parsed to a tree, then compiled to a `tsquery` **string** that is
+passed to `to_tsquery('simple', $n)` as a bind parameter. Every lexeme is single-quoted with
+tsquery's own operators stripped, so `x';DROP TABLE search_index;--` is three harmless words.
+
+### Weights are how search groups work
+One `tsvector` per record, with the weight recording *what kind of field* a word came from:
+**A** name · **B** general text · **C** email · **D** phone. `IN NAME FIELDS` is then a
+`ts_rank` mask (`{0,0,0,1}`) rather than a second index. Two things this forced:
+
+- **Postgres tokenises `enquiries@bengalclub.in` as one lexeme**, so the domain and local part are
+  indexed alongside the whole address or searching for either would miss.
+- **Phone numbers are indexed as written *and* as bare digits**, so `020 7290 1400` and
+  `02072901400` find each other.
+
+Changing what gets indexed leaves already-written rows stale. `reindexSearch` (a scheduled job
+kind) rebuilds from the records themselves; it is the migration path for exactly this.
+
+---
+
 ## Other lessons
 
 ### Security defaults must fail closed
@@ -98,6 +136,14 @@ Recorded so they are not mistaken for oversights:
 - **Duplicate external IDs within one batch** are caught by the unique index rather than the
   pre-check, so the whole batch fails instead of the one record. Data stays correct.
 - **Workflow fires once per save** — see [[Decisions#Workflow fires once per save]].
+- **Search does not apply FLS to the *index body*.** Results are re-queried through SOQL, so
+  sharing and field-level reads are enforced on what comes back — but a user who can already see a
+  record could infer that a term appears *somewhere* on it, including in a field they may not read.
+  Narrow, and recorded rather than assumed away; closing it means indexing per field.
+- **Leading and infix wildcards are rejected**, not silently dropped: `*club` and `ori*ental` raise
+  `MALFORMED_SEARCH`, because a GIN index cannot answer them and a slow sequential scan pretending
+  otherwise is worse than a clear error.
+- **`?` single-character wildcards** are unsupported and raise rather than being ignored.
 - **Screen flows** are interpreted headlessly; there is no UI to pause against until
   [[Roadmap#19 Client foundation|#19]].
 - **`npm run dev`** starts no client until #19.

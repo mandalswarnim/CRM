@@ -18,7 +18,7 @@ that does not all exist. This note describes what is actually built.
 | Database | PostgreSQL 14+, or embedded **PGlite** for dev and tests |
 | Frontend | React 18 + Vite *(not yet built — [[Roadmap#19 Client foundation\|#19]])* |
 | Auth | scrypt, opaque hashed session tokens |
-| Search | Postgres `tsvector`, maintained on every write |
+| Search | Postgres `tsvector`, weighted by field kind, maintained on every write |
 
 ## Module map
 
@@ -35,6 +35,7 @@ server/src/
 ├── formula/         Salesforce formula language: lexer, parser, evaluator, ~60 functions
 ├── dml/             the save pipeline + five named hooks
 ├── soql/            lexer, parser, security rewrite, SQL compiler, executor, paging
+├── sosl/            FIND parser, tsquery compiler, search execution, typeahead
 ├── security/        profiles, permission sets, FLS, OWD, role hierarchy, sharing
 ├── automation/      validation rules, workflow rules, merge fields
 ├── flow/            JSON DSL interpreter
@@ -93,7 +94,6 @@ generated SQL flat and the row shaping honest.
 ## What is not built yet
 
 - **Client** — `client/` is a `package.json` and nothing else
-- **SOSL** — the index is maintained; the query language over it is [[Roadmap#14 SOSL and global search|#14]]
 - **Booking engine** — [[Roadmap#15 Booking and inventory engine|#15]], the real design problem
 - **OAuth, Bulk, SOAP, streaming** — [[Roadmap#27 Remaining API compatibility|#27]]
 - **Reports, dashboards, Setup UI** — Phase D
